@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Masterpiece Preservationist</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Lato:wght@300;400&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Lato', sans-serif;
+            background-color: #1a1816;
+            color: #dcd6ce;
+            overflow: hidden; /* Prevent scrolling while scrubbing */
+            touch-action: none;
+        }
+
+        h1, h2, h3 {
+            font-family: 'Playfair Display', serif;
+        }
+
+        /* Wooden Frame Effect */
+        .frame {
+            box-shadow: 
+                inset 0 0 20px rgba(0,0,0,0.8),
+                0 10px 20px rgba(0,0,0,0.5),
+                0 0 0 10px #4a3c31,
+                0 0 0 15px #2a221b,
+                0 0 0 25px #c5a059; /* Gold accent */
+            position: relative;
+            cursor: none; /* We use a custom cursor */
+            background-color: #eee;
+        }
+
+        .canvas-stack {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Cursor Circle */
+        #cursor-brush {
+            position: absolute;
+            pointer-events: none;
+            border-radius: 50%;
+            border: 2px solid rgba(255, 255, 255, 0.8);
+            background: rgba(255, 255, 255, 0.2);
+            box-shadow: 0 0 10px rgba(255,255,255,0.3);
+            z-index: 50;
+            transform: translate(-50%, -50%);
+            display: none;
+            width: 70px;
+            height: 70px;
+        }
+
+        /* Texture Overlay for UI */
+        .wood-texture {
+            background-image: repeating-linear-gradient(45deg, rgba(255,255,255,0.03) 0px, rgba(255,255,255,0.03) 2px, transparent 2px, transparent 10px);
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col items-center justify-start p-4 wood-texture selection:bg-amber-700 selection:text-white relative">
+
+    <!-- Counter Display -->
+    <div class="absolute top-4 right-5 text-[10px] text-stone-500 uppercase tracking-widest font-mono z-10 pointer-events-none">
+        Restored <span id="restored-count" class="text-amber-500 text-sm font-bold ml-1">0</span>
+    </div>
+
+    <!-- Header -->
+    <header class="text-center w-full mb-4 mt-2">
+        <h1 class="text-3xl text-amber-100/90 tracking-wider leading-tight">Masterpiece<br><span class="text-2xl">Preservationist</span></h1>
+        <p class="text-xs text-stone-400 italic mt-1">Mobile Restoration Project</p>
+    </header>
+
+    <!-- Main Game Area -->
+    <main class="flex-1 flex flex-col items-center justify-start w-full max-w-md relative gap-4">
+        
+        <!-- Stats / Info -->
+        <div class="w-full flex justify-between items-center px-2">
+            <div>
+                <span class="text-stone-500 text-[10px] uppercase tracking-widest block">Progress</span>
+                <div class="text-xl text-amber-100 font-bold" id="percentage-display">0%</div>
+            </div>
+            <div class="text-right">
+                <span class="text-stone-500 text-[10px] uppercase tracking-widest block">Subject</span>
+                <div class="text-sm text-amber-100 italic" id="art-title">Loading...</div>
+            </div>
+        </div>
+
+        <!-- The Canvas Container (Portrait Aspect Ratio 3:4) -->
+        <div id="canvas-container" class="frame relative bg-neutral-800 rounded-sm overflow-hidden touch-none w-full shadow-2xl" style="aspect-ratio: 3/4; max-height: 70vh;">
+            <canvas id="canvas-clean" class="canvas-stack z-10"></canvas>
+            <canvas id="canvas-dirty" class="canvas-stack z-20"></canvas>
+            <div id="cursor-brush"></div>
+            
+            <!-- Completion Overlay -->
+            <div id="completion-overlay" class="absolute inset-0 z-30 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center opacity-0 pointer-events-none transition-opacity duration-1000">
+                <h2 class="text-4xl text-amber-100 mb-2 drop-shadow-lg">Restored</h2>
+                <p class="text-stone-300 mb-6 text-sm">The masterpiece is revealed.</p>
+                <button onclick="game.nextLevel()" class="px-8 py-3 bg-amber-700 hover:bg-amber-600 text-amber-50 rounded shadow-lg transition-colors border border-amber-500/50">
+                    Next Painting
+                </button>
+            </div>
+
+            <!-- Start Overlay -->
+            <div id="start-overlay" class="absolute inset-0 z-40 bg-stone-900/95 flex flex-col items-center justify-center p-6">
+                <h2 class="text-3xl text-amber-100 mb-4">Preservationist</h2>
+                <p class="text-stone-300 text-center mb-8 leading-relaxed text-sm">
+                    Gently scrub the screen to remove centuries of dirt and varnish.
+                    <br><br>
+                    Use headphones for the best experience.
+                </p>
+                <!-- STOP PROPAGATION HERE to prevent the click from hitting the canvas -->
+                <button onclick="event.stopPropagation(); game.start()" class="px-8 py-3 bg-amber-700 hover:bg-amber-600 text-white rounded shadow-lg transition-transform hover:scale-105">
+                    Start Cleaning
+                </button>
+            </div>
+        </div>
+
+        <!-- Simplified Status Bar (Replaces Tools) -->
+        <div class="w-full bg-stone-800/80 p-4 rounded-xl border border-stone-700 shadow-xl backdrop-blur-md">
+            <div class="flex flex-col w-full gap-2">
+                <div class="flex justify-between text-[10px] text-stone-400 uppercase">
+                    <span>Dirt Remaining</span>
+                    <span id="dirt-text">100%</span>
+                </div>
+                <div class="w-full h-3 bg-stone-700 rounded-full overflow-hidden shadow-inner">
+                    <div id="progress-bar" class="h-full bg-amber-500/80 transition-all duration-300 shadow-[0_0_10px_rgba(245,158,11,0.5)]" style="width: 100%"></div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        /**
+         * Artwork Collection
+         * Replace these URLs with your own 3:4 aspect ratio PNG/JPG files.
+         */
+        const ARTWORKS = [
+            {
+                title: "Girl with a Pearl Earring",
+                src: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0f/1665_Girl_with_a_Pearl_Earring.jpg/600px-1665_Girl_with_a_Pearl_Earring.jpg"
+            },
+            {
+                title: "The Starry Night",
+                src: "https://upload.wikimedia.org/wikipedia/commons/thumb/e/ea/Van_Gogh_-_Starry_Night_-_Google_Art_Project.jpg/600px-Van_Gogh_-_Starry_Night_-_Google_Art_Project.jpg"
+            },
+            {
+                title: "Mona Lisa",
+                src: "https://upload.wikimedia.org/wikipedia/commons/thumb/e/ec/Mona_Lisa%2C_by_Leonardo_da_Vinci%2C_from_C2RMF_retouched.jpg/540px-Mona_Lisa%2C_by_Leonardo_da_Vinci%2C_from_C2RMF_retouched.jpg"
+            },
+            {
+                title: "The Scream",
+                src: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Edvard_Munch%2C_1893%2C_The_Scream%2C_oil%2C_tempera_and_pastel_on_cardboard%2C_91_x_73.5_cm%2C_National_Gallery_of_Norway.jpg/600px-Edvard_Munch%2C_1893%2C_The_Scream%2C_oil%2C_tempera_and_pastel_on_cardboard%2C_91_x_73.5_cm%2C_National_Gallery_of_Norway.jpg"
+            }
+        ];
+
+        /**
+         * Sound Manager
+         * Uses Web Audio API to create procedural ASMR scrubbing sounds.
+         */
+        class SoundEngine {
+            constructor() {
+                this.ctx = null;
+                this.noiseNode = null;
+                this.gainNode = null;
+                this.isPlaying = false;
+            }
+
+            init() {
+                if (this.ctx) return;
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                this.ctx = new AudioContext();
+                
+                const bufferSize = 2 * this.ctx.sampleRate;
+                const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const output = buffer.getChannelData(0);
+                let b0, b1, b2, b3, b4, b5, b6;
+                b0 = b1 = b2 = b3 = b4 = b5 = b6 = 0.0;
+                
+                for (let i = 0; i < bufferSize; i++) {
+                    const white = Math.random() * 2 - 1;
+                    b0 = 0.99886 * b0 + white * 0.0555179;
+                    b1 = 0.99332 * b1 + white * 0.0750759;
+                    b2 = 0.96900 * b2 + white * 0.1538520;
+                    b3 = 0.86650 * b3 + white * 0.3104856;
+                    b4 = 0.55000 * b4 + white * 0.5329522;
+                    b5 = -0.7616 * b5 - white * 0.0168980;
+                    output[i] = b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362;
+                    output[i] *= 0.11; 
+                    b6 = white * 0.115926;
+                }
+
+                this.noiseBuffer = buffer;
+            }
+
+            startScrub() {
+                if (!this.ctx) this.init();
+                if (this.ctx.state === 'suspended') this.ctx.resume();
+
+                this.noiseNode = this.ctx.createBufferSource();
+                this.noiseNode.buffer = this.noiseBuffer;
+                this.noiseNode.loop = true;
+
+                this.filter = this.ctx.createBiquadFilter();
+                this.filter.type = 'lowpass';
+                this.filter.frequency.value = 800;
+
+                this.gainNode = this.ctx.createGain();
+                this.gainNode.gain.value = 0; 
+
+                this.noiseNode.connect(this.filter);
+                this.filter.connect(this.gainNode);
+                this.gainNode.connect(this.ctx.destination);
+                
+                this.noiseNode.start();
+                this.isPlaying = true;
+            }
+
+            update(speed) {
+                if (!this.isPlaying) return;
+                const volume = Math.min(Math.max(speed / 50, 0), 0.8);
+                const frequency = 400 + (speed * 10);
+                this.gainNode.gain.setTargetAtTime(volume, this.ctx.currentTime, 0.1);
+                this.filter.frequency.setTargetAtTime(frequency, this.ctx.currentTime, 0.1);
+            }
+
+            stopScrub() {
+                if (this.gainNode) {
+                    this.gainNode.gain.setTargetAtTime(0, this.ctx.currentTime, 0.1);
+                }
+                setTimeout(() => {
+                    if (this.noiseNode) {
+                        try { this.noiseNode.stop(); } catch(e){}
+                        this.isPlaying = false;
+                    }
+                }, 200);
+            }
+        }
+
+        /**
+         * Main Game Logic
+         */
+        class Game {
+            constructor() {
+                this.canvasClean = document.getElementById('canvas-clean');
+                this.canvasDirty = document.getElementById('canvas-dirty');
+                this.ctxClean = this.canvasClean.getContext('2d');
+                this.ctxDirty = this.canvasDirty.getContext('2d');
+                this.container = document.getElementById('canvas-container');
+                this.cursor = document.getElementById('cursor-brush');
+                this.percentageDisplay = document.getElementById('percentage-display');
+                this.progressBar = document.getElementById('progress-bar');
+                this.dirtText = document.getElementById('dirt-text');
+                this.titleDisplay = document.getElementById('art-title');
+                this.restoredDisplay = document.getElementById('restored-count');
+                
+                this.sound = new SoundEngine();
+                
+                this.isDrawing = false;
+                this.lastX = 0;
+                this.lastY = 0;
+                this.level = -1;
+                this.restoredCount = 0;
+                this.toolSize = 70; // Fixed tool size
+                this.isCompleted = false;
+                this.resizeTimer = null;
+                this.levelStartTime = 0;
+                this.isLevelReady = false; // New gate flag
+                
+                this.currentArtImg = null;
+
+                this.initEvents();
+                // Initial resize call to set dimensions, but don't load level yet
+                this.resize(false);
+            }
+
+            start() {
+                if (this.resizeTimer) clearTimeout(this.resizeTimer);
+                document.getElementById('start-overlay').style.display = 'none';
+                this.sound.init(); 
+
+                const checkDimensions = () => {
+                    if (this.container.offsetWidth > 0 && this.container.offsetHeight > 0) {
+                         this.canvasDirty.style.opacity = '1';
+                         this.resize(false);
+                         this.loadLevel(0);
+                    } else {
+                         requestAnimationFrame(checkDimensions);
+                    }
+                };
+                requestAnimationFrame(checkDimensions);
+            }
+
+            resize(reloadLevel = true) {
+                const rect = this.container.getBoundingClientRect();
+                if (rect.width === 0 || rect.height === 0) return;
+
+                this.width = rect.width;
+                this.height = rect.height;
+
+                const dpr = window.devicePixelRatio || 1;
+                
+                [this.canvasClean, this.canvasDirty].forEach(c => {
+                    c.width = this.width * dpr;
+                    c.height = this.height * dpr;
+                    c.style.width = `${this.width}px`;
+                    c.style.height = `${this.height}px`;
+                    c.getContext('2d').scale(dpr, dpr);
+                });
+
+                // If we have an active image, redraw it on resize
+                if (this.currentArtImg) {
+                    this.ctxClean.clearRect(0, 0, this.width, this.height);
+                    this.ctxClean.drawImage(this.currentArtImg, 0, 0, this.width, this.height);
+                }
+
+                if(reloadLevel && !this.isCompleted && this.level > -1) {
+                    this.loadLevel(this.level);
+                }
+            }
+
+            loadLevel(index) {
+                this.level = index;
+                this.isCompleted = false;
+                this.isLevelReady = false; // Lock interactions
+                this.levelStartTime = Date.now();
+                document.getElementById('completion-overlay').classList.add('opacity-0', 'pointer-events-none');
+                
+                // 1. Pick Random Artwork
+                const artConfig = ARTWORKS[Math.floor(Math.random() * ARTWORKS.length)];
+                this.titleDisplay.innerText = "Loading...";
+
+                // 2. Load Image
+                const img = new Image();
+                img.crossOrigin = "Anonymous"; // Helpful for some CORS situations
+                img.onload = () => {
+                    this.currentArtImg = img;
+                    this.titleDisplay.innerText = artConfig.title;
+                    
+                    // Draw clean layer
+                    this.ctxClean.clearRect(0, 0, this.width, this.height);
+                    this.ctxClean.drawImage(img, 0, 0, this.width, this.height);
+                    
+                    // Generate dirt only after image is ready
+                    this.generateDirt();
+                    this.updateProgress(0);
+
+                    // Enable progress checks after short delay
+                    setTimeout(() => {
+                        this.isLevelReady = true;
+                    }, 500);
+                };
+                img.onerror = () => {
+                    this.titleDisplay.innerText = "Error Loading Art";
+                    console.error("Failed to load image:", artConfig.src);
+                };
+                img.src = artConfig.src;
+            }
+
+            generateDirt() {
+                const ctx = this.ctxDirty;
+                const w = this.width;
+                const h = this.height;
+
+                ctx.save();
+                ctx.globalCompositeOperation = 'source-over';
+                
+                // Base varnish
+                ctx.fillStyle = 'rgba(101, 67, 33, 0.95)';
+                ctx.fillRect(0, 0, w, h);
+
+                // Add Noise/Grime
+                for(let i=0; i<300; i++) {
+                    const x = Math.random() * w;
+                    const y = Math.random() * h;
+                    const r = Math.random() * 50 + 10;
+                    
+                    const grd = ctx.createRadialGradient(x, y, 0, x, y, r);
+                    grd.addColorStop(0, 'rgba(40, 30, 10, 0.6)');
+                    grd.addColorStop(1, 'rgba(40, 30, 10, 0)');
+                    ctx.fillStyle = grd;
+                    ctx.beginPath();
+                    ctx.arc(x, y, r, 0, Math.PI*2);
+                    ctx.fill();
+                }
+
+                ctx.strokeStyle = 'rgba(20, 10, 0, 0.3)';
+                ctx.lineWidth = 1;
+                for(let i=0; i<20; i++) {
+                    ctx.beginPath();
+                    let cx = Math.random() * w;
+                    let cy = Math.random() * h;
+                    ctx.moveTo(cx, cy);
+                    for(let j=0; j<10; j++) {
+                        cx += (Math.random() - 0.5) * 50;
+                        cy += (Math.random() - 0.5) * 50;
+                        ctx.lineTo(cx, cy);
+                    }
+                    ctx.stroke();
+                }
+                ctx.restore();
+            }
+
+            initEvents() {
+                const c = this.container;
+
+                c.addEventListener('mousedown', (e) => this.onStart(e.clientX, e.clientY));
+                window.addEventListener('mousemove', (e) => this.onMove(e.clientX, e.clientY));
+                window.addEventListener('mouseup', () => this.onEnd());
+
+                c.addEventListener('touchstart', (e) => {
+                    // FIX: Allow button clicks to pass through.
+                    // If the user taps a button, we do NOT want to start scrubbing or preventDefault.
+                    if (e.target.closest('button')) return;
+
+                    e.preventDefault();
+                    this.onStart(e.touches[0].clientX, e.touches[0].clientY);
+                }, {passive: false});
+                
+                window.addEventListener('touchmove', (e) => {
+                    if(this.isDrawing) e.preventDefault();
+                    this.onMove(e.touches[0].clientX, e.touches[0].clientY);
+                }, {passive: false});
+                
+                window.addEventListener('touchend', () => this.onEnd());
+                
+                window.addEventListener('resize', () => {
+                   clearTimeout(this.resizeTimer);
+                   this.resizeTimer = setTimeout(() => this.resize(true), 200);
+                });
+            }
+
+            getPos(clientX, clientY) {
+                const rect = this.canvasDirty.getBoundingClientRect();
+                return {
+                    x: clientX - rect.left,
+                    y: clientY - rect.top
+                };
+            }
+
+            onStart(cx, cy) {
+                if(this.isCompleted) return;
+                this.isDrawing = true;
+                const pos = this.getPos(cx, cy);
+                this.lastX = pos.x;
+                this.lastY = pos.y;
+                
+                this.clean(pos.x, pos.y);
+                this.sound.startScrub();
+            }
+
+            onMove(cx, cy) {
+                const rect = this.container.getBoundingClientRect();
+                const relX = cx - rect.left;
+                const relY = cy - rect.top;
+
+                if (cx >= rect.left && cx <= rect.right && cy >= rect.top && cy <= rect.bottom) {
+                    this.cursor.style.display = 'block';
+                    this.cursor.style.left = relX + 'px';
+                    this.cursor.style.top = relY + 'px';
+                } else {
+                    this.cursor.style.display = 'none';
+                }
+
+                if (!this.isDrawing || this.isCompleted) return;
+
+                const pos = this.getPos(cx, cy);
+                const dx = pos.x - this.lastX;
+                const dy = pos.y - this.lastY;
+                const distance = Math.sqrt(dx*dx + dy*dy);
+                const speed = distance; 
+                
+                this.sound.update(speed);
+
+                const angle = Math.atan2(dy, dx);
+                for (let i = 0; i < distance; i+=5) {
+                    const ix = this.lastX + Math.cos(angle) * i;
+                    const iy = this.lastY + Math.sin(angle) * i;
+                    this.clean(ix, iy);
+                }
+                
+                this.lastX = pos.x;
+                this.lastY = pos.y;
+                
+                if (Math.random() > 0.9) this.checkProgress();
+            }
+
+            onEnd() {
+                this.isDrawing = false;
+                this.sound.stopScrub();
+                this.checkProgress();
+            }
+
+            clean(x, y) {
+                const ctx = this.ctxDirty;
+                ctx.save();
+                ctx.globalCompositeOperation = 'destination-out';
+                ctx.fillStyle = "rgba(0,0,0,1)"; 
+                ctx.beginPath();
+                ctx.arc(x, y, this.toolSize / 2, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+
+            checkProgress() {
+                if (this.isCompleted) return;
+                // FAILSAFE: Do not check progress if level is not ready (first 500ms)
+                if (!this.isLevelReady) return;
+
+                const w = this.canvasDirty.width;
+                const h = this.canvasDirty.height;
+                const ctx = this.ctxDirty;
+                
+                const imageData = ctx.getImageData(0, 0, w, h);
+                const data = imageData.data;
+                const stride = 10; 
+                
+                let transparentPixels = 0;
+                let checkedPixels = 0;
+
+                for (let i = 3; i < data.length; i += (4 * stride)) {
+                    checkedPixels++;
+                    if (data[i] === 0) { 
+                        transparentPixels++;
+                    }
+                }
+
+                if (checkedPixels === 0) return;
+
+                const percentage = Math.floor((transparentPixels / checkedPixels) * 100);
+                this.updateProgress(percentage);
+
+                if (percentage >= 97) {
+                    // FAILSAFE 2: Glitch Detection
+                    // If we are somehow 100% clean in less than 1 second, it's a bug.
+                    // Reload the level silently.
+                    if (Date.now() - this.levelStartTime < 1000) {
+                        console.warn("Glitch detected: Instant win. Reloading level.");
+                        this.loadLevel(this.level);
+                        return;
+                    }
+
+                    this.completeLevel();
+                }
+            }
+
+            updateProgress(percent) {
+                this.percentageDisplay.innerText = percent + '%';
+                this.dirtText.innerText = (100 - percent) + '%';
+                this.progressBar.style.width = (100 - percent) + '%';
+            }
+
+            completeLevel() {
+                this.isCompleted = true;
+                this.sound.stopScrub();
+                
+                this.canvasDirty.style.transition = 'opacity 1s ease';
+                this.canvasDirty.style.opacity = '0';
+                
+                // Increment counter
+                this.restoredCount++;
+                if (this.restoredDisplay) {
+                    this.restoredDisplay.innerText = this.restoredCount;
+                }
+
+                setTimeout(() => {
+                    const overlay = document.getElementById('completion-overlay');
+                    overlay.classList.remove('opacity-0', 'pointer-events-none');
+                }, 1000);
+            }
+
+            nextLevel() {
+                this.canvasDirty.style.transition = 'none';
+                this.canvasDirty.style.opacity = '1';
+                void this.canvasDirty.offsetWidth;
+
+                this.loadLevel(this.level + 1);
+            }
+        }
+
+        const game = new Game();
+
+    </script>
+</body>
+</html>
