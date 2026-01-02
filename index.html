@@ -385,7 +385,6 @@
 
                 // 2. Load Image
                 const img = new Image();
-                img.crossOrigin = "Anonymous"; // Helpful for some CORS situations
                 img.onload = () => {
                     this.currentArtImg = img;
                     this.titleDisplay.innerText = artConfig.title;
