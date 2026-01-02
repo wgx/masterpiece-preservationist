@@ -13,6 +13,8 @@
             color: #dcd6ce;
             overflow: hidden; /* Prevent scrolling while scrubbing */
             touch-action: none;
+            /* Ensure full height on mobile browsers */
+            height: 100dvh; 
         }
 
         h1, h2, h3 {
@@ -63,7 +65,7 @@
         }
     </style>
 </head>
-<body class="h-screen w-screen flex flex-col items-center justify-start p-4 wood-texture selection:bg-amber-700 selection:text-white relative">
+<body class="flex flex-col items-center justify-between p-4 wood-texture selection:bg-amber-700 selection:text-white relative">
 
     <!-- Counter Display -->
     <div class="absolute top-4 right-5 text-[10px] text-stone-500 uppercase tracking-widest font-mono z-10 pointer-events-none">
@@ -71,16 +73,16 @@
     </div>
 
     <!-- Header -->
-    <header class="text-center w-full mb-4 mt-2">
+    <header class="text-center w-full mb-2 mt-1 shrink-0">
         <h1 class="text-3xl text-amber-100/90 tracking-wider leading-tight">Masterpiece<br><span class="text-2xl">Preservationist</span></h1>
-        <p class="text-xs text-stone-400 italic mt-1">Scrub to reveal the Masterpiece</p>
+        <p class="text-xs text-stone-400 italic mt-1">Scrub to reveal the masterpiece</p>
     </header>
 
     <!-- Main Game Area -->
-    <main class="flex-1 flex flex-col items-center justify-start w-full max-w-md relative gap-4">
+    <main class="flex-1 flex flex-col items-center justify-center w-full max-w-md relative gap-2 min-h-0">
         
         <!-- Stats / Info -->
-        <div class="w-full flex justify-between items-center px-2">
+        <div class="w-full flex justify-between items-center px-2 shrink-0">
             <div>
                 <span class="text-stone-500 text-[10px] uppercase tracking-widest block">Progress</span>
                 <div class="text-xl text-amber-100 font-bold" id="percentage-display">0%</div>
@@ -92,7 +94,8 @@
         </div>
 
         <!-- The Canvas Container (Portrait Aspect Ratio 3:4) -->
-        <div id="canvas-container" class="frame relative bg-neutral-800 rounded-sm overflow-hidden touch-none w-full shadow-2xl" style="aspect-ratio: 3/4; max-height: 70vh;">
+        <!-- FIX: Using flex-shrink and min-height-0 allows this to scale down -->
+        <div id="canvas-container" class="frame relative bg-neutral-800 rounded-sm overflow-hidden touch-none w-full shadow-2xl shrink" style="aspect-ratio: 3/4; max-height: 100%;">
             <canvas id="canvas-clean" class="canvas-stack z-10"></canvas>
             <canvas id="canvas-dirty" class="canvas-stack z-20"></canvas>
             <div id="cursor-brush"></div>
@@ -121,8 +124,8 @@
             </div>
         </div>
 
-        <!-- Status Bar  -->
-        <div class="w-full bg-stone-800/80 p-4 rounded-xl border border-stone-700 shadow-xl backdrop-blur-md">
+        <!-- Simplified Status Bar (Replaces Tools) -->
+        <div class="w-full bg-stone-800/80 p-4 rounded-xl border border-stone-700 shadow-xl backdrop-blur-md shrink-0">
             <div class="flex flex-col w-full gap-2">
                 <div class="flex justify-between text-[10px] text-stone-400 uppercase">
                     <span>Dirt Remaining</span>
