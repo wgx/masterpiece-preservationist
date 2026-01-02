@@ -45,9 +45,11 @@
             position: absolute;
             pointer-events: none;
             border-radius: 50%;
-            border: 2px solid rgba(255, 255, 255, 0.8);
-            background: rgba(255, 255, 255, 0.2);
-            box-shadow: 0 0 10px rgba(255,255,255,0.3);
+            border: 2px solid rgba(255, 255, 255, 0.6);
+            /* Make cursor slightly softer to match the brush */
+            box-shadow: 
+                0 0 10px rgba(255,255,255,0.3),
+                inset 0 0 10px rgba(255,255,255,0.2);
             z-index: 50;
             transform: translate(-50%, -50%);
             display: none;
@@ -141,20 +143,40 @@
          */
         const ARTWORKS = [
             {
-                title: "Girl with a Pearl Earring",
-                src: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0f/1665_Girl_with_a_Pearl_Earring.jpg/600px-1665_Girl_with_a_Pearl_Earring.jpg"
+                title: "The Delivery",
+                src: "artworks/1.png"
             },
             {
-                title: "The Starry Night",
-                src: "https://upload.wikimedia.org/wikipedia/commons/thumb/e/ea/Van_Gogh_-_Starry_Night_-_Google_Art_Project.jpg/600px-Van_Gogh_-_Starry_Night_-_Google_Art_Project.jpg"
+                title: "Taketh Out",
+                src: "artworks/2.png"
             },
             {
-                title: "Mona Lisa",
-                src: "https://upload.wikimedia.org/wikipedia/commons/thumb/e/ec/Mona_Lisa%2C_by_Leonardo_da_Vinci%2C_from_C2RMF_retouched.jpg/540px-Mona_Lisa%2C_by_Leonardo_da_Vinci%2C_from_C2RMF_retouched.jpg"
+                title: "La Stick Di Selfie",
+                src: "artworks/3.png"
             },
             {
-                title: "The Scream",
-                src: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Edvard_Munch%2C_1893%2C_The_Scream%2C_oil%2C_tempera_and_pastel_on_cardboard%2C_91_x_73.5_cm%2C_National_Gallery_of_Norway.jpg/600px-Edvard_Munch%2C_1893%2C_The_Scream%2C_oil%2C_tempera_and_pastel_on_cardboard%2C_91_x_73.5_cm%2C_National_Gallery_of_Norway.jpg"
+                title: "Weeknight In",
+                src: "artworks/4.png"
+            },
+            {
+                title: "The Great Excursion",
+                src: "artworks/5.png"
+            },
+            {
+                title: "Regardez Le PowerPoint",
+                src: "artworks/6.png"
+            },
+            {
+                title: "Una Piccola Bicicletta",
+                src: "artworks/7.png"
+            },
+            {
+                title: "Un Incontro Importante",
+                src: "artworks/8.png"
+            },
+            {
+                title: "Girl with a Great TikTok",
+                src: "artworks/9.png"
             }
         ];
 
@@ -273,9 +295,32 @@
                 
                 this.currentArtImg = null;
 
+                // Create noise pattern canvas once
+                this.noisePatternCanvas = document.createElement('canvas');
+                this.noisePatternCanvas.width = 100;
+                this.noisePatternCanvas.height = 100;
+                this.generateNoisePattern();
+
                 this.initEvents();
                 // Initial resize call to set dimensions, but don't load level yet
                 this.resize(false);
+            }
+
+            generateNoisePattern() {
+                const ctx = this.noisePatternCanvas.getContext('2d');
+                const w = 100;
+                const h = 100;
+                const imageData = ctx.createImageData(w, h);
+                const data = imageData.data;
+                
+                for (let i = 0; i < data.length; i += 4) {
+                    const val = Math.random() * 50;
+                    data[i] = val;     // R
+                    data[i + 1] = val; // G
+                    data[i + 2] = val; // B
+                    data[i + 3] = Math.random() * 40; // Alpha
+                }
+                ctx.putImageData(imageData, 0, 0);
             }
 
             start() {
@@ -369,35 +414,59 @@
                 ctx.save();
                 ctx.globalCompositeOperation = 'source-over';
                 
-                // Base varnish
-                ctx.fillStyle = 'rgba(101, 67, 33, 0.95)';
+                // 1. Base Varnish (Multi-layered for depth)
+                // Dark brownish-yellow
+                ctx.fillStyle = 'rgba(60, 45, 10, 0.9)';
                 ctx.fillRect(0, 0, w, h);
+                
+                // 2. Apply Noise Texture
+                const pattern = ctx.createPattern(this.noisePatternCanvas, 'repeat');
+                ctx.fillStyle = pattern;
+                ctx.globalAlpha = 0.6; // Blend noise
+                ctx.fillRect(0, 0, w, h);
+                ctx.globalAlpha = 1.0;
 
-                // Add Noise/Grime
-                for(let i=0; i<300; i++) {
+                // 3. Vignette (Darker edges, lighter center)
+                const vignette = ctx.createRadialGradient(w/2, h/2, w*0.3, w/2, h/2, w*0.8);
+                vignette.addColorStop(0, 'rgba(0,0,0,0)');
+                vignette.addColorStop(1, 'rgba(20,10,0,0.8)');
+                ctx.fillStyle = vignette;
+                ctx.fillRect(0,0,w,h);
+
+                // 4. Stains (Varied colors)
+                for(let i=0; i<80; i++) {
                     const x = Math.random() * w;
                     const y = Math.random() * h;
-                    const r = Math.random() * 50 + 10;
+                    const r = Math.random() * 60 + 20;
                     
                     const grd = ctx.createRadialGradient(x, y, 0, x, y, r);
-                    grd.addColorStop(0, 'rgba(40, 30, 10, 0.6)');
-                    grd.addColorStop(1, 'rgba(40, 30, 10, 0)');
+                    const alpha = Math.random() * 0.4 + 0.1;
+                    // Randomize stain color (soot, mold, dust)
+                    const colorType = Math.random();
+                    let colorBase = '40, 30, 10'; // Brown
+                    if (colorType > 0.8) colorBase = '10, 10, 10'; // Soot
+                    else if (colorType > 0.6) colorBase = '50, 60, 40'; // Moldy green
+
+                    grd.addColorStop(0, `rgba(${colorBase}, ${alpha})`);
+                    grd.addColorStop(1, `rgba(${colorBase}, 0)`);
                     ctx.fillStyle = grd;
                     ctx.beginPath();
                     ctx.arc(x, y, r, 0, Math.PI*2);
                     ctx.fill();
                 }
 
-                ctx.strokeStyle = 'rgba(20, 10, 0, 0.3)';
-                ctx.lineWidth = 1;
-                for(let i=0; i<20; i++) {
+                // 5. Cracks (Subtle)
+                ctx.strokeStyle = 'rgba(10, 5, 0, 0.2)';
+                ctx.lineWidth = 0.5;
+                for(let i=0; i<30; i++) {
                     ctx.beginPath();
                     let cx = Math.random() * w;
                     let cy = Math.random() * h;
                     ctx.moveTo(cx, cy);
-                    for(let j=0; j<10; j++) {
-                        cx += (Math.random() - 0.5) * 50;
-                        cy += (Math.random() - 0.5) * 50;
+                    // Spider web effect
+                    for(let j=0; j<15; j++) {
+                        cx += (Math.random() - 0.5) * 40;
+                        cy += (Math.random() - 0.5) * 40;
                         ctx.lineTo(cx, cy);
                     }
                     ctx.stroke();
@@ -499,7 +568,15 @@
                 const ctx = this.ctxDirty;
                 ctx.save();
                 ctx.globalCompositeOperation = 'destination-out';
-                ctx.fillStyle = "rgba(0,0,0,1)"; 
+                
+                // SOFT EDGE BRUSH
+                // Create a radial gradient that fades from opaque to transparent
+                const grd = ctx.createRadialGradient(x, y, 0, x, y, this.toolSize / 2);
+                grd.addColorStop(0, "rgba(0,0,0,1)");     // Center: Removes dirt fully
+                grd.addColorStop(0.5, "rgba(0,0,0,0.8)"); // Mid: Removes most dirt
+                grd.addColorStop(1, "rgba(0,0,0,0)");     // Edge: Removes nothing
+
+                ctx.fillStyle = grd; 
                 ctx.beginPath();
                 ctx.arc(x, y, this.toolSize / 2, 0, Math.PI * 2);
                 ctx.fill();
