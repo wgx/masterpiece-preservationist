@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Masterpiece Preservationist</title>
+    <title>Masterpiece Preservationist - Gently scrub the screen to remove centuries of dirt and varnish</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Lato:wght@300;400&display=swap" rel="stylesheet">
     <style>
@@ -84,7 +84,7 @@
         <div class="w-full flex justify-between items-center px-2 shrink-0">
             <div>
                 <span class="text-stone-500 text-[10px] uppercase tracking-widest block">Progress</span>
-                <div class="text-xl text-amber-100 font-bold" id="percentage-display">0%</div>
+                <div class="text-[12px] text-amber-100 font-bold" id="percentage-display">0%</div>
             </div>
             <div class="text-right">
                 <span class="text-stone-500 text-[10px] uppercase tracking-widest block">Subject</span>
@@ -110,7 +110,7 @@
 
             <!-- Start Overlay -->
             <div id="start-overlay" class="absolute inset-0 z-40 bg-stone-900/95 flex flex-col items-center justify-center p-6">
-                <h2 class="text-3xl text-amber-100 mb-4">Preservationist</h2>
+                <h2 class="text-2xl text-amber-100 mb-4">Welcome Apprentice!</h2>
                 <p class="text-stone-300 text-center mb-8 leading-relaxed text-sm">
                     Gently scrub the screen to remove centuries of dirt and varnish.
                     <br><br>
@@ -183,6 +183,10 @@
             {
                 title: "Girl with a Great TikTok",
                 src: "artworks/9.png"
+            },
+            {
+                title: "The Mona Listens",
+                src: "artworks/10.png"
             }
         ];
 
@@ -235,7 +239,7 @@
 
                 this.filter = this.ctx.createBiquadFilter();
                 this.filter.type = 'lowpass';
-                this.filter.frequency.value = 800;
+                this.filter.frequency.value = 600;
 
                 this.gainNode = this.ctx.createGain();
                 this.gainNode.gain.value = 0; 
@@ -250,7 +254,7 @@
 
             update(speed) {
                 if (!this.isPlaying) return;
-                const volume = Math.min(Math.max(speed / 50, 0), 0.8);
+                const volume = Math.min(Math.max(speed / 50, 0), 0.5);
                 const frequency = 400 + (speed * 10);
                 this.gainNode.gain.setTargetAtTime(volume, this.ctx.currentTime, 0.1);
                 this.filter.frequency.setTargetAtTime(frequency, this.ctx.currentTime, 0.1);
